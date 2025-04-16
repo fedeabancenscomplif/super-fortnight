@@ -124,11 +124,14 @@ class AFIPService:
             logger.error(f"Error al obtener token y sign: {str(e)}")
             raise
 
-    def emitir_factura(self, datos_factura):
+    def emitir_factura(self, datos_factura, token=None, sign=None):
         """Emite una factura electrónica"""
         try:
-            # Obtener token y sign
-            auth_data = self.obtener_token_sign()
+            # Obtener token y sign si no se proporcionan
+            if not token or not sign:
+                auth_data = self.obtener_token_sign()
+                token = auth_data['token']
+                sign = auth_data['sign']
             
             # Crear cliente WSFE
             client = Client(self.wsfe_url)
@@ -136,8 +139,8 @@ class AFIPService:
             # Preparar datos de la factura
             factura_data = {
                 'Auth': {
-                    'Token': auth_data['token'],
-                    'Sign': auth_data['sign'],
+                    'Token': token,
+                    'Sign': sign,
                     'Cuit': self.cuit
                 },
                 'FeDetReq': {

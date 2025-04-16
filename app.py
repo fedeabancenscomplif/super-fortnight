@@ -11,12 +11,16 @@ logger = logging.getLogger(__name__)
 # Inicializar servicio AFIP
 afip_service = AFIPService()
 
+# Almacenamiento temporal del token y sign
+current_auth = None
+
 @app.route('/auth', methods=['GET'])
 def auth():
     """Endpoint para obtener el token y sign actuales"""
     try:
-        auth_data = afip_service.obtener_token_sign()
-        return jsonify(auth_data)
+        global current_auth
+        current_auth = afip_service.obtener_token_sign()
+        return jsonify(current_auth)
     except Exception as e:
         logger.error(f"Error en endpoint /auth: {str(e)}")
         return jsonify({'error': str(e)}), 500
@@ -25,21 +29,22 @@ def auth():
 def emitir_factura():
     """Endpoint para emitir una factura"""
     try:
-        datos_factura = request.json
+        data = request.json
         
-        # Validar datos requeridos
-        required_fields = ['doc_nro', 'imp_total', 'imp_neto']
-        missing_fields = [field for field in required_fields if field not in datos_factura]
-        
+        # Validar campos requeridos
+        required_fields = ['doc_nro', 'cbte_desde', 'cbte_hasta', 'imp_total', 'imp_neto']
+        missing_fields = [field for field in required_fields if field not in data]
         if missing_fields:
-            return jsonify({
-                'error': 'Faltan campos requeridos',
-                'campos_faltantes': missing_fields
-            }), 400
+            return jsonify({"error": f"Faltan campos requeridos: {', '.join(missing_fields)}"}), 400
         
-        # Emitir factura
-        resultado = afip_service.emitir_factura(datos_factura)
-        return jsonify(resultado)
+        # Si no hay token válido, obtener uno nuevo
+        global current_auth
+        if not current_auth:
+            current_auth = afip_service.obtener_token_sign()
+        
+        # Emitir factura usando el token actual
+        result = afip_service.emitir_factura(data)
+        return jsonify(result)
         
     except Exception as e:
         logger.error(f"Error en endpoint /emitir_factura: {str(e)}")
