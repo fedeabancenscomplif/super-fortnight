@@ -136,11 +136,7 @@ class AFIPService:
             error_msg = str(e)
             if "El CEE ya posee un TA valido" in error_msg:
                 logger.warning("Token válido existente detectado")
-                # Esperar 1 minuto antes de reintentar
-                import time
-                time.sleep(60)
-                # Reintentar una vez
-                return self.obtener_token_sign()
+                raise ValueError("Ya existe un token válido. Por favor, espera a que expire antes de solicitar uno nuevo.")
             logger.error(f"Error al obtener token y sign: {str(e)}")
             raise
 
