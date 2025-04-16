@@ -67,12 +67,15 @@ class AFIPService:
         try:
             # Crear archivos temporales para los certificados
             cert_temp, key_temp = self._write_temp_certificates()
+            logger.info("Certificados temporales creados correctamente")
             
             # Generar XML de login con hora de Argentina
             dt_now = datetime.now(ARG_TIMEZONE)
             unique_id = dt_now.strftime('%y%m%d%H%M')
             gen_time = (dt_now - timedelta(minutes=10)).strftime('%Y-%m-%dT%H:%M:%S')
             exp_time = (dt_now + timedelta(minutes=10)).strftime('%Y-%m-%dT%H:%M:%S')
+
+            logger.info(f"Generando XML con unique_id: {unique_id}, gen_time: {gen_time}, exp_time: {exp_time}")
 
             root = ET.Element('loginTicketRequest')
             header = ET.SubElement(root, 'header')
@@ -82,6 +85,7 @@ class AFIPService:
             ET.SubElement(root, 'service').text = 'wsfe'
 
             xml_str = ET.tostring(root, encoding='unicode')
+            logger.info(f"XML generado: {xml_str}")
             
             # Crear archivo temporal para el XML
             xml_temp = tempfile.NamedTemporaryFile(delete=False, suffix='.xml')
@@ -89,6 +93,7 @@ class AFIPService:
             xml_temp.close()
             
             # Firmar con OpenSSL
+            logger.info("Firmando XML con OpenSSL")
             result = subprocess.run([
                 'openssl', 'cms', '-sign',
                 '-in', xml_temp.name,
@@ -100,11 +105,13 @@ class AFIPService:
             
             cms_der = result.stdout
             cms_b64 = base64.b64encode(cms_der).decode('ascii')
+            logger.info("XML firmado correctamente")
             
             # Limpiar archivos temporales
             self._cleanup_temp_files(cert_temp, key_temp, xml_temp.name)
             
             # Obtener token y sign
+            logger.info("Conectando con WSAA")
             client = Client(self.wsaa_url)
             response = client.service.loginCms(cms_b64)
             
@@ -114,13 +121,26 @@ class AFIPService:
             sign = root.find('.//sign').text
             expiration = datetime.now(ARG_TIMEZONE) + timedelta(hours=12)
             
+            logger.info("Token y sign obtenidos correctamente")
             return {
                 'token': token,
                 'sign': sign,
                 'expiration': expiration.isoformat()
             }
             
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Error al firmar con OpenSSL: {str(e)}")
+            logger.error(f"Stderr: {e.stderr.decode()}")
+            raise
         except Exception as e:
+            error_msg = str(e)
+            if "El CEE ya posee un TA valido" in error_msg:
+                logger.warning("Token válido existente detectado")
+                # Esperar 1 minuto antes de reintentar
+                import time
+                time.sleep(60)
+                # Reintentar una vez
+                return self.obtener_token_sign()
             logger.error(f"Error al obtener token y sign: {str(e)}")
             raise
 
