@@ -2,7 +2,7 @@ import os
 import logging
 import subprocess
 import xml.etree.ElementTree as ET
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import base64
 from zeep import Client
 import tempfile
@@ -10,6 +10,9 @@ import tempfile
 # Configuración de logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Configuración de zona horaria
+ARG_TIMEZONE = timezone(timedelta(hours=-3))
 
 class AFIPService:
     def __init__(self):
@@ -65,8 +68,8 @@ class AFIPService:
             # Crear archivos temporales para los certificados
             cert_temp, key_temp = self._write_temp_certificates()
             
-            # Generar XML de login
-            dt_now = datetime.now()
+            # Generar XML de login con hora de Argentina
+            dt_now = datetime.now(ARG_TIMEZONE)
             unique_id = dt_now.strftime('%y%m%d%H%M')
             gen_time = (dt_now - timedelta(minutes=10)).strftime('%Y-%m-%dT%H:%M:%S')
             exp_time = (dt_now + timedelta(minutes=10)).strftime('%Y-%m-%dT%H:%M:%S')
@@ -109,7 +112,7 @@ class AFIPService:
             root = ET.fromstring(response)
             token = root.find('.//token').text
             sign = root.find('.//sign').text
-            expiration = datetime.now() + timedelta(hours=12)
+            expiration = datetime.now(ARG_TIMEZONE) + timedelta(hours=12)
             
             return {
                 'token': token,
@@ -144,7 +147,7 @@ class AFIPService:
                         'DocNro': datos_factura.get('doc_nro'),
                         'CbteDesde': datos_factura.get('cbte_desde'),
                         'CbteHasta': datos_factura.get('cbte_hasta'),
-                        'CbteFch': datetime.now().strftime('%Y%m%d'),
+                        'CbteFch': datetime.now(ARG_TIMEZONE).strftime('%Y%m%d'),
                         'ImpTotal': datos_factura.get('imp_total'),
                         'ImpTotConc': datos_factura.get('imp_tot_conc', 0),
                         'ImpNeto': datos_factura.get('imp_neto'),
