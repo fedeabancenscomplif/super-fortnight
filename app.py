@@ -43,7 +43,11 @@ def emitir_factura():
             current_auth = afip_service.obtener_token_sign()
         
         # Emitir factura usando el token actual
-        result = afip_service.emitir_factura(data)
+        result = afip_service.emitir_factura(
+            data,
+            token=current_auth['token'],
+            sign=current_auth['sign']
+        )
         return jsonify(result)
         
     except Exception as e:
