@@ -21,16 +21,24 @@ class AFIPService:
         self.key_base64 = os.getenv('CLAVE')
         self.cuit = os.getenv('CUIT')
         
+        # Verificar que los certificados existan
+        if not all([self.cert_base64, self.key_base64, self.cuit]):
+            raise ValueError("Faltan variables de entorno: CERTIFICADO, CLAVE o CUIT")
+        
+        # Convertir CUIT a entero y validar
+        try:
+            self.cuit = int(self.cuit)
+            if len(str(self.cuit)) != 11:
+                raise ValueError("El CUIT debe tener 11 dígitos")
+        except ValueError as e:
+            raise ValueError(f"Error en el CUIT: {str(e)}")
+        
         # URLs de los servicios AFIP
         self.wsaa_url = 'https://wsaahomo.afip.gov.ar/ws/services/LoginCms?WSDL'
         self.wsfe_url = 'https://wswhomo.afip.gov.ar/wsfev1/service.asmx?WSDL'
         
         # Almacenamiento del token actual
         self.current_auth = None
-        
-        # Verificar que los certificados existan
-        if not all([self.cert_base64, self.key_base64, self.cuit]):
-            raise ValueError("Faltan variables de entorno: CERTIFICADO, CLAVE o CUIT")
 
     def _write_temp_certificates(self):
         """Escribe los certificados en archivos temporales desde base64"""
@@ -172,7 +180,7 @@ class AFIPService:
                 'Auth': {
                     'Token': self.current_auth['token'],
                     'Sign': self.current_auth['sign'],
-                    'Cuit': int(self.cuit)
+                    'Cuit': self.cuit  # Usar el CUIT de la instancia
                 },
                 'FeDetReq': {
                     'FECAEDetRequest': {
