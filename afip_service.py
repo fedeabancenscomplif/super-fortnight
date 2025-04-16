@@ -157,27 +157,29 @@ class AFIPService:
                 'Auth': {
                     'Token': token,
                     'Sign': sign,
-                    'Cuit': self.cuit
+                    'Cuit': int(self.cuit)  # Convertir CUIT a entero
                 },
                 'FeDetReq': {
                     'FECAEDetRequest': {
                         'Concepto': datos_factura.get('concepto', 1),
                         'DocTipo': datos_factura.get('doc_tipo', 80),
-                        'DocNro': datos_factura.get('doc_nro'),
-                        'CbteDesde': datos_factura.get('cbte_desde'),
-                        'CbteHasta': datos_factura.get('cbte_hasta'),
+                        'DocNro': int(datos_factura.get('doc_nro')),  # Convertir a entero
+                        'CbteDesde': int(datos_factura.get('cbte_desde')),  # Convertir a entero
+                        'CbteHasta': int(datos_factura.get('cbte_hasta')),  # Convertir a entero
                         'CbteFch': datetime.now(ARG_TIMEZONE).strftime('%Y%m%d'),
-                        'ImpTotal': datos_factura.get('imp_total'),
-                        'ImpTotConc': datos_factura.get('imp_tot_conc', 0),
-                        'ImpNeto': datos_factura.get('imp_neto'),
-                        'ImpOpEx': datos_factura.get('imp_op_ex', 0),
-                        'ImpIVA': datos_factura.get('imp_iva', 0),
-                        'ImpTrib': datos_factura.get('imp_trib', 0),
+                        'ImpTotal': float(datos_factura.get('imp_total')),  # Convertir a float
+                        'ImpTotConc': float(datos_factura.get('imp_tot_conc', 0)),  # Convertir a float
+                        'ImpNeto': float(datos_factura.get('imp_neto')),  # Convertir a float
+                        'ImpOpEx': float(datos_factura.get('imp_op_ex', 0)),  # Convertir a float
+                        'ImpIVA': float(datos_factura.get('imp_iva', 0)),  # Convertir a float
+                        'ImpTrib': float(datos_factura.get('imp_trib', 0)),  # Convertir a float
                         'MonId': datos_factura.get('mon_id', 'PES'),
-                        'MonCot': datos_factura.get('mon_cot', 1)
+                        'MonCot': float(datos_factura.get('mon_cot', 1))  # Convertir a float
                     }
                 }
             }
+            
+            logger.info(f"Datos de factura preparados: {factura_data}")
             
             # Emitir factura
             response = client.service.FECAESolicitar(factura_data)
