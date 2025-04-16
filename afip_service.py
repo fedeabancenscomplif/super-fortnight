@@ -25,6 +25,9 @@ class AFIPService:
         self.wsaa_url = 'https://wsaahomo.afip.gov.ar/ws/services/LoginCms?WSDL'
         self.wsfe_url = 'https://wswhomo.afip.gov.ar/wsfev1/service.asmx?WSDL'
         
+        # Almacenamiento del token actual
+        self.current_auth = None
+        
         # Verificar que los certificados existan
         if not all([self.cert_base64, self.key_base64, self.cuit]):
             raise ValueError("Faltan variables de entorno: CERTIFICADO, CLAVE o CUIT")
@@ -62,7 +65,18 @@ class AFIPService:
             except Exception as e:
                 logger.warning(f"Error al eliminar archivo temporal {file}: {str(e)}")
 
-    def obtener_token_sign(self):
+    def _is_token_valid(self):
+        """Verifica si el token actual es válido"""
+        if not self.current_auth or 'expiration' not in self.current_auth:
+            return False
+        try:
+            expiration = datetime.fromisoformat(self.current_auth['expiration'])
+            return expiration > datetime.now(timezone.utc)
+        except Exception as e:
+            logger.error(f"Error al verificar validez del token: {str(e)}")
+            return False
+
+    def _obtener_token_sign(self):
         """Obtiene un nuevo token y sign de AFIP"""
         try:
             # Crear archivos temporales para los certificados
@@ -140,14 +154,15 @@ class AFIPService:
             logger.error(f"Error al obtener token y sign: {str(e)}")
             raise
 
-    def emitir_factura(self, datos_factura, token=None, sign=None):
+    def emitir_factura(self, datos_factura):
         """Emite una factura electrónica"""
         try:
-            # Obtener token y sign si no se proporcionan
-            if not token or not sign:
-                auth_data = self.obtener_token_sign()
-                token = auth_data['token']
-                sign = auth_data['sign']
+            # Verificar si necesitamos un nuevo token
+            if not self._is_token_valid():
+                logger.info("Token inválido o expirado, obteniendo uno nuevo")
+                self.current_auth = self._obtener_token_sign()
+            else:
+                logger.info("Reutilizando token existente")
             
             # Crear cliente WSFE
             client = Client(self.wsfe_url)
@@ -155,26 +170,26 @@ class AFIPService:
             # Preparar datos de la factura
             factura_data = {
                 'Auth': {
-                    'Token': token,
-                    'Sign': sign,
-                    'Cuit': int(self.cuit)  # Convertir CUIT a entero
+                    'Token': self.current_auth['token'],
+                    'Sign': self.current_auth['sign'],
+                    'Cuit': int(self.cuit)
                 },
                 'FeDetReq': {
                     'FECAEDetRequest': {
                         'Concepto': datos_factura.get('concepto', 1),
                         'DocTipo': datos_factura.get('doc_tipo', 80),
-                        'DocNro': int(datos_factura.get('doc_nro')),  # Convertir a entero
-                        'CbteDesde': int(datos_factura.get('cbte_desde')),  # Convertir a entero
-                        'CbteHasta': int(datos_factura.get('cbte_hasta')),  # Convertir a entero
+                        'DocNro': int(datos_factura.get('doc_nro')),
+                        'CbteDesde': int(datos_factura.get('cbte_desde')),
+                        'CbteHasta': int(datos_factura.get('cbte_hasta')),
                         'CbteFch': datetime.now(ARG_TIMEZONE).strftime('%Y%m%d'),
-                        'ImpTotal': float(datos_factura.get('imp_total')),  # Convertir a float
-                        'ImpTotConc': float(datos_factura.get('imp_tot_conc', 0)),  # Convertir a float
-                        'ImpNeto': float(datos_factura.get('imp_neto')),  # Convertir a float
-                        'ImpOpEx': float(datos_factura.get('imp_op_ex', 0)),  # Convertir a float
-                        'ImpIVA': float(datos_factura.get('imp_iva', 0)),  # Convertir a float
-                        'ImpTrib': float(datos_factura.get('imp_trib', 0)),  # Convertir a float
+                        'ImpTotal': float(datos_factura.get('imp_total')),
+                        'ImpTotConc': float(datos_factura.get('imp_tot_conc', 0)),
+                        'ImpNeto': float(datos_factura.get('imp_neto')),
+                        'ImpOpEx': float(datos_factura.get('imp_op_ex', 0)),
+                        'ImpIVA': float(datos_factura.get('imp_iva', 0)),
+                        'ImpTrib': float(datos_factura.get('imp_trib', 0)),
                         'MonId': datos_factura.get('mon_id', 'PES'),
-                        'MonCot': float(datos_factura.get('mon_cot', 1))  # Convertir a float
+                        'MonCot': float(datos_factura.get('mon_cot', 1))
                     }
                 }
             }
