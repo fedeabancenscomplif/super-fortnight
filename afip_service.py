@@ -180,7 +180,7 @@ class AFIPService:
                 'Auth': {
                     'Token': self.current_auth['token'],
                     'Sign': self.current_auth['sign'],
-                    'Cuit': self.cuit  # Usar el CUIT de la instancia
+                    'Cuit': '20427202438'
                 },
                 'FeDetReq': {
                     'FECAEDetRequest': {
