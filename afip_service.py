@@ -19,7 +19,7 @@ class AFIPService:
         # Obtener los certificados desde variables de entorno en base64
         self.cert_base64 = os.getenv('CERTIFICADO')
         self.key_base64 = os.getenv('CLAVE')
-        self.cuit = os.getenv('CUIT')
+        self.cuit = "20427202438" #os.getenv('CUIT')
         
         # Verificar que los certificados existan
         if not all([self.cert_base64, self.key_base64, self.cuit]):
